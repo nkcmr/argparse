@@ -222,7 +222,7 @@ _arg_parse_params_set=0
 flag_{{ $f.ToVarName }}=""
 {{- end }}
 while [[ $# -gt 0 ]] ; do
-	case $1 in
+	case "$(echo "$1" | cut -d= -f1)" in
 		-h | --help)
 			echo "Usage:"
 			echo "  $0{{ range $p := $.Params }} {{ $p.Name | ToUpper }}{{ end }} [flags]"
@@ -243,7 +243,11 @@ while [[ $# -gt 0 ]] ; do
 		{{- range $f := .Flags }}
 		{{ if ne $f.Short "" }}-{{ $f.Short }} | {{ end }}--{{ $f.Name }})
 			if [[ $# -eq 1 ]] || [[ "$2" == -* ]] ; then
-				flag_{{ $f.ToVarName }}=true
+				if [[ "$1" == *=* ]] ; then
+					flag_{{ $f.ToVarName }}="$(echo "$1" | cut -d= -f2-)"
+				else
+					flag_{{ $f.ToVarName }}=true
+				fi
 			else
 				shift
 				flag_{{ $f.ToVarName }}="$1"
