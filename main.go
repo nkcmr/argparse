@@ -307,12 +307,12 @@ while [[ $# -gt 0 ]] ; do
 			elif [ $_arg_parse_params_set -eq {{ $i }} ] ; then
 			{{- end }}
 				param_{{ $p.Name }}="$1"
-				((_arg_parse_params_set++))
+				((_arg_parse_params_set=_arg_parse_params_set+1))
 			{{- if eq $i (sub (len $.Params) 1) }}
 			else
 			{{- end }}
 			{{- end }}
-				((_arg_parse_params_set++))
+				((_arg_parse_params_set=_arg_parse_params_set+1))
 				echo "$0: error: accepts {{ len .Params }} args(s), received $_arg_parse_params_set"
 				exit 1
 			fi
