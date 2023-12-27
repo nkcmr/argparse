@@ -19,13 +19,32 @@ func main() {
 	_ = rootCommand().Execute()
 }
 
-var paramConfigPattern = regexp.MustCompile(`(?i)^#\s+param:([a-z_][a-z0-9_]*)\s+(.+)$`)
-var flagConfigPattern = regexp.MustCompile(`(?i)^#\s+flag:(([a-z_][a-z0-9-_]*)(,([a-z]))?)\s+(.+)$`)
-var codegenBoundaryPattern = regexp.MustCompile(`^#\s*argparse:(start|stop).*$`)
+var configPrefixPattern = regexp.MustCompile(`^#\s+(flag|param):(.*)$`)
+var paramConfigPattern = regexp.MustCompile(`(?i)^(?P<name>[a-z_][a-z0-9_]*)\s+(?P<help>.+)$`)
+var flagConfigPattern = regexp.MustCompile(`(?i)^((?P<name>[a-z_][a-z0-9-_]*)(,(?P<short>[a-z]))?)\s+(?P<help>.+)$`)
+var flagDefaultPattern = regexp.MustCompile(`(?i)\(\s*default\s*:\s*(?P<default_value>[^\)]+)\)`)
+var codegenBoundaryPattern = regexp.MustCompile(`^#\s*argparse:(?P<kind>start|stop).*$`)
+
+func namedMatches(r *regexp.Regexp, s string) map[string]string {
+	groupNames := r.SubexpNames()
+	matches := r.FindAllStringSubmatch(s, -1)
+	if matches == nil {
+		return nil
+	}
+	out := map[string]string{}
+	for groupIdx, group := range matches[0] {
+		name := groupNames[groupIdx]
+		if name == "" {
+			continue
+		}
+		out[name] = group
+	}
+	return out
+}
 
 type flag struct {
-	LineNumber        int
-	Name, Short, Help string
+	LineNumber                 int
+	Name, Short, Default, Help string
 }
 
 func (f flag) ToVarName() string {
@@ -60,28 +79,46 @@ func rootCommand() *cobra.Command {
 			flags := []flag{}
 			params := []param{}
 			for lineIndex, line := range scriptLines {
-				paramMatch := paramConfigPattern.FindAllSubmatch(line, -1)
-				if paramMatch != nil {
-					name, help := paramMatch[0][1], paramMatch[0][2]
-					params = append(params, param{
-						LineNumber: lineIndex,
-						Name:       string(name), Help: string(help),
-					})
+				configMatches := configPrefixPattern.FindAllStringSubmatch(string(line), -1)
+				if configMatches != nil {
+					configType, config := configMatches[0][1], configMatches[0][2]
+					switch configType {
+					case "flag":
+						matches := namedMatches(flagConfigPattern, config)
+						if matches == nil {
+							return fmt.Errorf(`invalid flag config on line %d, expected "flag-name(,f) help text" (parenthesis indicate optional parts)`, lineIndex+1)
+						}
+						defaultMatch := namedMatches(flagDefaultPattern, matches["help"])
+						defaultValue := ""
+						if defaultMatch != nil {
+							defaultValue = defaultMatch["default_value"]
+						}
+						flags = append(flags, flag{
+							LineNumber: lineIndex,
+							Name:       matches["name"],
+							Short:      matches["short"],
+							Default:    defaultValue,
+							Help:       matches["help"],
+						})
+					case "param":
+						matches := namedMatches(paramConfigPattern, config)
+						if matches == nil {
+							return fmt.Errorf(`invalid param config on line %d, expected "param-name help text"`, lineIndex+1)
+						}
+						params = append(params, param{
+							LineNumber: lineIndex,
+							Name:       matches["name"],
+							Help:       matches["help"],
+						})
+					default:
+						panic(fmt.Sprintf("unknown argparse config type '%s'", configType))
+					}
 					continue
 				}
-				flagMatch := flagConfigPattern.FindAllSubmatch(line, -1)
-				if flagMatch != nil {
-					name, short, help := flagMatch[0][2], flagMatch[0][4], flagMatch[0][5]
-					flags = append(flags, flag{
-						LineNumber: lineIndex,
-						Name:       string(name), Short: string(short), Help: string(help),
-					})
-					continue
-				}
-				boundaryPatternMatch := codegenBoundaryPattern.FindAllSubmatch(line, -1)
+
+				boundaryPatternMatch := namedMatches(codegenBoundaryPattern, string(line))
 				if boundaryPatternMatch != nil {
-					which := string(boundaryPatternMatch[0][1])
-					switch which {
+					switch which := boundaryPatternMatch["kind"]; which {
 					case "start":
 						if foundPreviousStart >= 0 {
 							return fmt.Errorf("2 'argparse:start' markers found on line %d and %d, expecting only 1", foundPreviousStart, lineIndex+1)
@@ -200,6 +237,9 @@ func (t templateData) HasParams() bool {
 var argParseTemplate = template.Must(template.New("argparse_bash").Funcs(template.FuncMap{
 	"ToUpper": strings.ToUpper,
 	"sub":     func(a, b int) int { return a - b },
+	"quote_escape": func(s string) string {
+		return strings.NewReplacer(`"`, `\"`).Replace(s)
+	},
 	"FormatFlagHelp": func(name, short, help string, maxNameWidth int) string {
 		const shortFlagSize = 2
 		const longFlagPrefix = 2
@@ -219,7 +259,7 @@ param_{{ $p.Name }}=""
 _arg_parse_params_set=0
 {{- end }}
 {{- range $f := .Flags }}
-flag_{{ $f.ToVarName }}=""
+flag_{{ $f.ToVarName }}="{{ $f.Default | quote_escape }}"
 {{- end }}
 while [[ $# -gt 0 ]] ; do
 	case "$(echo "$1" | cut -d= -f1)" in
@@ -277,7 +317,7 @@ while [[ $# -gt 0 ]] ; do
 				exit 1
 			fi
 		{{- else }}
-			echo "$0: error: accepts 0 args, received 1"
+			echo "$0: error: accepts 0 args, received 1 or more"
 			exit 1
 		{{- end }}
 		;;
