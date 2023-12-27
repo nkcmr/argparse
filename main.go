@@ -279,7 +279,7 @@ while [[ $# -gt 0 ]] ; do
 			echo "{{ FormatFlagHelp $f.Name $f.Short $f.Help $.MaxFlagNameLength }}"
 			{{- end }}
 			exit 1
-		;;
+			;;
 		{{- range $f := .Flags }}
 		{{ if ne $f.Short "" }}-{{ $f.Short }} | {{ end }}--{{ $f.Name }})
 			if [[ $# -eq 1 ]] || [[ "$2" == -* ]] ; then
@@ -292,12 +292,16 @@ while [[ $# -gt 0 ]] ; do
 				shift
 				flag_{{ $f.ToVarName }}="$1"
 			fi
-		;;
+			;;
 		{{- end }}
+		--)
+			shift
+			break
+			;;
 		-*)
 			printf 'Unknown flag "%s"' "$1" ; echo
 			exit 1
-		;;
+			;;
 		*)
 		{{- if .HasParams }}
 			{{- range $i, $p := .Params }}
@@ -320,7 +324,7 @@ while [[ $# -gt 0 ]] ; do
 			echo "$0: error: accepts 0 args, received 1 or more"
 			exit 1
 		{{- end }}
-		;;
+			;;
 	esac
 	shift
 done
