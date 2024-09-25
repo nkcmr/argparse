@@ -31,7 +31,7 @@ while [[ $# -gt 0 ]] ; do
 			echo "  -s, --short          Demoing the short flag"
 			echo "  -d, --with-default   Something that has a default value (default: cool!)"
 			exit 1
-		;;
+			;;
 		--dry-run)
 			if [[ $# -eq 1 ]] || [[ "$2" == -* ]] ; then
 				if [[ "$1" == *=* ]] ; then
@@ -43,7 +43,7 @@ while [[ $# -gt 0 ]] ; do
 				shift
 				flag_dry_run="$1"
 			fi
-		;;
+			;;
 		-s | --short)
 			if [[ $# -eq 1 ]] || [[ "$2" == -* ]] ; then
 				if [[ "$1" == *=* ]] ; then
@@ -55,7 +55,7 @@ while [[ $# -gt 0 ]] ; do
 				shift
 				flag_short="$1"
 			fi
-		;;
+			;;
 		-d | --with-default)
 			if [[ $# -eq 1 ]] || [[ "$2" == -* ]] ; then
 				if [[ "$1" == *=* ]] ; then
@@ -67,24 +67,28 @@ while [[ $# -gt 0 ]] ; do
 				shift
 				flag_with_default="$1"
 			fi
-		;;
+			;;
+		--)
+			shift
+			break
+			;;
 		-*)
 			printf 'Unknown flag "%s"' "$1" ; echo
 			exit 1
-		;;
+			;;
 		*)
 			if [ $_arg_parse_params_set -eq 0 ] ; then
 				param_one="$1"
-				((_arg_parse_params_set++))
+				((_arg_parse_params_set=_arg_parse_params_set+1))
 			elif [ $_arg_parse_params_set -eq 1 ] ; then
 				param_two="$1"
-				((_arg_parse_params_set++))
+				((_arg_parse_params_set=_arg_parse_params_set+1))
 			else
-				((_arg_parse_params_set++))
+				((_arg_parse_params_set=_arg_parse_params_set+1))
 				echo "$0: error: accepts 2 args(s), received $_arg_parse_params_set"
 				exit 1
 			fi
-		;;
+			;;
 	esac
 	shift
 done

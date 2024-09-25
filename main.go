@@ -56,14 +56,49 @@ type param struct {
 	Name, Help string
 }
 
+var indentFlagPattern = regexp.MustCompile(`^(?<setting>tabs?|spaces?:(?<nsp>[1-9]))$`)
+
+const defaultIndent = "\t"
+
+func getIndentStepFromFlag(flag string) (string, error) {
+	matchGroups := namedMatches(indentFlagPattern, strings.ToLower(flag))
+	if matchGroups == nil {
+		return "", errors.Errorf("invalid value for indent flag, see --help info")
+	}
+	setting := matchGroups["setting"]
+	switch setting {
+	case "tab", "tabs":
+		return "\t", nil
+	}
+	if !strings.HasPrefix(setting, "space:") && !strings.HasPrefix(setting, "spaces:") {
+		return "", errors.Errorf("expected spaces settings, got %q", setting)
+	}
+	nspacesStr, ok := matchGroups["nsp"]
+	if !ok {
+		return "", errors.Errorf("expected nsp submatch to be present")
+	}
+	nspaces, err := strconv.Atoi(nspacesStr)
+	if err != nil {
+		return "", errors.Errorf("failed to parse nsp submatch as integer")
+	}
+	return strings.Repeat(" ", nspaces), nil
+}
+
 func rootCommand() *cobra.Command {
 	var args struct {
 		inplace bool
+		indent  string
 	}
+
 	cmd := &cobra.Command{
 		Use:  "argparse SCRIPT_FILE",
 		Args: cobra.ExactArgs(1),
 		Run: runWithError(func(cmd *cobra.Command, pargs []string) error {
+			indentStep, err := getIndentStepFromFlag(args.indent)
+			if err != nil {
+				return errors.Wrap(err, "failed to parse indent setting")
+			}
+
 			scriptFileMode, err := os.Stat(pargs[0])
 			if err != nil {
 				return errors.Wrap(err, "failed to stat script file")
@@ -169,7 +204,7 @@ func rootCommand() *cobra.Command {
 				knownLong[f.Name] = f
 			}
 
-			result := codegenArgparse(params, flags)
+			result := codegenArgparse(indentStep, params, flags)
 
 			lastMatchedLine := max(
 				reduceSlice(params, func(mem int, p param, _ int) int { return max(mem, p.LineNumber) }, int(-1)),
@@ -200,6 +235,7 @@ func rootCommand() *cobra.Command {
 		}),
 	}
 	cmd.Flags().BoolVarP(&args.inplace, "in-place", "i", false, "Should the edit be done in place?")
+	cmd.Flags().StringVar(&args.indent, "indent", "tabs", `Indent setting for generated code. (must be /^tabs?$/i or /^spaces?:[1-9]$/i )`)
 	return cmd
 }
 
@@ -337,7 +373,18 @@ unset _arg_parse_params_set
 {{- end }}
 # argparse:stop ABOVE CODE IS AUTO-GENERATED - DO NOT TOUCH`))
 
-func codegenArgparse(params []param, flags []flag) string {
+func replaceTabIndent(line string, newIndent string) string {
+	indentCount := int(0)
+	for _, c := range []byte(line) {
+		if c != '\t' {
+			break
+		}
+		indentCount++
+	}
+	return strings.Repeat(newIndent, indentCount) + line[indentCount:]
+}
+
+func codegenArgparse(indent string, params []param, flags []flag) string {
 	var s strings.Builder
 	longestFlagName := len("help")
 	for _, f := range flags {
@@ -352,6 +399,14 @@ func codegenArgparse(params []param, flags []flag) string {
 	})
 	if err != nil {
 		panic(err)
+	}
+	if indent != defaultIndent {
+		lines := strings.Split(s.String(), "\n")
+		fixedLines := make([]string, 0, len(lines))
+		for _, line := range lines {
+			fixedLines = append(fixedLines, replaceTabIndent(line, indent))
+		}
+		return strings.Join(fixedLines, "\n")
 	}
 	return s.String()
 }
