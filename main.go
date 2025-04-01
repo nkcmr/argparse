@@ -43,8 +43,11 @@ func namedMatches(r *regexp.Regexp, s string) map[string]string {
 }
 
 type flag struct {
-	LineNumber                 int
-	Name, Short, Default, Help string
+	LineNumber int
+	Name       string
+	Short      string
+	Default    string
+	Help       string
 }
 
 func (f flag) ToVarName() string {
@@ -210,7 +213,7 @@ func rootCommand() *cobra.Command {
 				reduceSlice(params, func(mem int, p param, _ int) int { return max(mem, p.LineNumber) }, int(-1)),
 				reduceSlice(flags, func(mem int, f flag, _ int) int { return max(mem, f.LineNumber) }, int(-1)),
 			)
-			newLines := slices.Clone(mapSlice[[]byte, string, [][]byte](scriptLines, func(b []byte) string { return string(b) }))
+			newLines := slices.Clone(mapSlice(scriptLines, func(b []byte) string { return string(b) }))
 			if foundPreviousStart == -1 || foundPreviousStop == -1 {
 				if lastMatchedLine == -1 {
 					fmt.Fprintln(os.Stderr, "# (DO NOT COPY THIS LINE) Unable to find a place to splice argparse section, just printing it out instead:")
@@ -335,7 +338,8 @@ while [[ $# -gt 0 ]] ; do
 			break
 			;;
 		-*)
-			printf 'Unknown flag "%s"' "$1" ; echo
+			printf '%s: unknown flag "%s"' "$0" "$1" ; echo
+			echo "Try '$0 --help' for more information."
 			exit 1
 			;;
 		*)
@@ -352,12 +356,14 @@ while [[ $# -gt 0 ]] ; do
 			else
 			{{- end }}
 			{{- end }}
-				((_arg_parse_params_set=_arg_parse_params_set+1))
-				echo "$0: error: accepts {{ len .Params }} args(s), received $_arg_parse_params_set"
+				((_arg_parse_params_set=_arg_parse_params_set+$#))
+				echo "$0: accepts {{ len .Params }} args(s), received $_arg_parse_params_set"
+				echo "Try '$0 --help' for more information."
 				exit 1
 			fi
 		{{- else }}
 			echo "$0: error: accepts 0 args, received 1 or more"
+			echo "Try '$0 --help' for more information."
 			exit 1
 		{{- end }}
 			;;
@@ -367,6 +373,7 @@ done
 {{- if .HasParams }}
 if [[ $_arg_parse_params_set -lt {{ len .Params }} ]] ; then
 	echo "$0: error: accepts {{ len .Params }} arg(s), received $_arg_parse_params_set"
+	echo "Try '$0 --help' for more information."
 	exit 1
 fi
 unset _arg_parse_params_set
@@ -388,8 +395,9 @@ func codegenArgparse(indent string, params []param, flags []flag) string {
 	var s strings.Builder
 	longestFlagName := len("help")
 	for _, f := range flags {
-		if len(f.Name) > longestFlagName {
-			longestFlagName = len(f.Name)
+		fl := len(f.Name)
+		if fl > longestFlagName {
+			longestFlagName = fl
 		}
 	}
 	err := argParseTemplate.Execute(&s, templateData{

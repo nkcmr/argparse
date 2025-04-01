@@ -73,7 +73,8 @@ while [[ $# -gt 0 ]] ; do
 			break
 			;;
 		-*)
-			printf 'Unknown flag "%s"' "$1" ; echo
+			printf '%s: unknown flag "%s"' "$0" "$1" ; echo
+			echo "Try '$0 --help' for more information."
 			exit 1
 			;;
 		*)
@@ -84,8 +85,9 @@ while [[ $# -gt 0 ]] ; do
 				param_two="$1"
 				((_arg_parse_params_set=_arg_parse_params_set+1))
 			else
-				((_arg_parse_params_set=_arg_parse_params_set+1))
-				echo "$0: error: accepts 2 args(s), received $_arg_parse_params_set"
+				((_arg_parse_params_set=_arg_parse_params_set+$#))
+				echo "$0: accepts 2 args(s), received $_arg_parse_params_set"
+				echo "Try '$0 --help' for more information."
 				exit 1
 			fi
 			;;
@@ -94,6 +96,7 @@ while [[ $# -gt 0 ]] ; do
 done
 if [[ $_arg_parse_params_set -lt 2 ]] ; then
 	echo "$0: error: accepts 2 arg(s), received $_arg_parse_params_set"
+	echo "Try '$0 --help' for more information."
 	exit 1
 fi
 unset _arg_parse_params_set
