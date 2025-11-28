@@ -53,7 +53,7 @@ param:3three INVALID: cannot start with number
 Flags are optional, non-ordered arguments. They can be given a value upon invocation like: `--one two` or if they are passed without a value `--one` it is assumed that the value should just be `true`. This is the structure of a flag config line:
 
 ```
-flag:<name: [a-z_][a-z0-9-_]*>(,<short_flag: [a-z]>)? <help text>
+flag:<name: [a-z_][a-z0-9-_]*>(,<short_flag: [a-z]>)? <help text> (default: <default value>)
 ```
 
 #### examples
@@ -61,6 +61,7 @@ flag:<name: [a-z_][a-z0-9-_]*>(,<short_flag: [a-z]>)? <help text>
 ```
 flag:foo,f Generates a flag that can be "--foo <value>" or "-f"
 flag:bar Generates a flag that can only be "--bar <value>" or "--bar"
+flag:beep Boop description (default: bop)
 flag:1foo INVALID: Will be ignored since it is invalid (cannot start with number)
 flag:,f INVALID: Cannot only be short, must have long name
 ```
@@ -88,4 +89,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-

@@ -17,7 +17,7 @@ flag_dry_run=""
 flag_short=""
 flag_with_default="cool!"
 while [[ $# -gt 0 ]] ; do
-	case "$(echo "$1" | cut -d= -f1)" in
+	case "$(printf "%s" "$1" | cut -d= -f1)" in
 		-h | --help)
 			echo "Usage:"
 			echo "  $0 ONE TWO [flags]"

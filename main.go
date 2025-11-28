@@ -301,7 +301,7 @@ _arg_parse_params_set=0
 flag_{{ $f.ToVarName }}="{{ $f.Default | quote_escape }}"
 {{- end }}
 while [[ $# -gt 0 ]] ; do
-	case "$(echo "$1" | cut -d= -f1)" in
+	case "$(printf "%s" "$1" | cut -d= -f1)" in
 		-h | --help)
 			echo "Usage:"
 			echo "  $0{{ range $p := $.Params }} {{ $p.Name | ToUpper }}{{ end }} [flags]"
